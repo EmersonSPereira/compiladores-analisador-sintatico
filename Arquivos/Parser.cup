@@ -1,0 +1,149 @@
+package projetoPT3;
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+action code {:
+	Map<String,Integer> ts = new HashMap<String,Integer>();
+	Deque<Integer> pTipos = new LinkedList<Integer>();
+	
+	public void asVarCheck(String ident) throws Exception {
+		Integer t = asUnstackType();
+		if(ts.containsKey(ident)) {
+			throw new Exception("Variável \"" + ident + "\" já declarada");
+		} else {
+			ts.put(ident, t);
+			System.out.println("ID <" + ident + "," + Sym.terminalNames[t] + "> inserido na tabela de simbolos");
+		}
+	}
+	
+	public void asStackUpType(Integer varType) {
+		pTipos.addFirst(varType);
+		System.out.println("Tipo empilhado: " + Sym.terminalNames[varType]);
+	}
+	
+	public Integer asUnstackType() throws Exception {
+		if (pTipos.isEmpty()) {
+			throw new Exception("Pilha vazia");
+		}
+		Integer t = pTipos.removeFirst(); 
+		System.out.println("Tipo desempilhado: " + Sym.terminalNames[t]);
+		return t;
+	}
+	
+	public void asStackUpResultingType_SUM_SUB() throws Exception {
+		Integer aType = asUnstackType();
+		Integer bType = asUnstackType();
+		Integer resultingType;
+		if (aType == bType){
+			resultingType = aType;
+		} else {
+			if ((aType == Sym.NumFloat && bType == Sym.NumInt) ||
+				(aType == Sym.NumInt && bType == Sym.NumFloat)) {
+				resultingType = Sym.NumFloat;
+			} else {
+				throw new Exception("Não é possível fazer operações entre palavras e números");
+			}
+		}
+		asStackUpType(resultingType);
+	}
+	
+	public void asCheckCompatibilityATT_CMD(String id) throws Exception {
+		Integer expType = asUnstackType();
+		Integer idType = asUnstackType();
+		if ((idType == Sym.NumInt && expType == Sym.NumFloat) ||
+			(idType == Sym.NumInt && expType == Sym.Frase) ||
+			(idType == Sym.NumFloat && expType == Sym.Frase) ||
+			(idType == Sym.Frase && expType == Sym.NumInt) ||
+			(idType == Sym.Frase && expType == Sym.NumFloat)) {
+			String idTypename = Sym.terminalNames[idType];
+			String expTypename = Sym.terminalNames[expType]; 
+			throw new Exception("A variável '" + id + "' do tipo " +
+				 idTypename + " não pode armazenar valores do tipo "
+				 + expTypename);
+		}
+	}
+:};
+
+terminal Id,Zint, Rfloat, Txt, cf;
+terminal AbreChaves, FechaChaves, AbreCochetes, FechaCochetes, AbreParentese, FechaParentese, inteiro, flutuante, Cadeia_de_Caracteres;
+terminal add, subt, mult, div, exp, Maior, Menor ,compIg;
+terminal deu, deuN, efvLoop	, Att;
+
+
+non terminal PROGRAMA, CMDS, CMD, FUNC, FUNC_IF, FUNC_ELSE, FUNC_WHILE;
+non terminal VAR, DEC_VAR, DEC_VAR_ATT, ATT_VAR;
+non terminal TIPO, TIPOS_DE_DADOS, EXPRESSAO, OPERACAO, EXPRESSAO2;
+
+start with PROGRAMA;
+
+PROGRAMA ::= CMDS cf;
+
+CMDS ::= CMDS CMD | CMD;
+CMD  ::= VAR cf | FUNC;
+FUNC ::= FUNC_IF | FUNC_ELSE | FUNC_WHILE;
+FUNC_IF ::= deu AbreParentese EXPRESSAO FechaParentese AbreChaves CMDS FechaChaves;
+FUNC_ELSE ::= deu AbreParentese EXPRESSAO FechaParentese AbreChaves CMDS FechaChaves deuN AbreChaves CMDS FechaChaves;
+FUNC_WHILE ::= efvLoop AbreParentese EXPRESSAO FechaParentese AbreChaves CMDS FechaChaves;
+
+VAR ::= DEC_VAR | DEC_VAR_ATT | ATT_VAR;
+DEC_VAR ::= TIPOS_DE_DADOS Id:ident
+				{:
+					asVarCheck((String)ident);
+				:}
+				;
+DEC_VAR_ATT ::= TIPOS_DE_DADOS Id Att TIPO:ident
+				{:
+					asVarCheck((String)ident);
+					asStackUpType(ts.get(ident));
+				:}
+				RECEBE exp
+				{:
+					asCheckCompatibilityATT_CMD((String)ident);
+				:}
+				;
+ATT_VAR ::= Id Att TIPO:ident
+				{:
+					asStackUpType(ts.get(ident));
+				:}
+				RECEBE exp
+				{:
+					asCheckCompatibilityATT_CMD((String)ident);
+				:}
+				;
+
+TIPOS_DE_DADOS ::= Zint 
+				{:
+					asStackUpType(Sym.NumInt);
+				:} 
+				| NumFloat
+				{:
+					asStackUpType(Sym.NumFloat);
+				:}
+				| Frase
+				{:
+					asStackUpType(Sym.Frase);
+				:}
+				;
+TIPO ::= inteiro 
+			{:
+					asStackUpType(Sym.NumInt);
+				:}
+				| PontoFlutuante
+				{:
+					asStackUpType(Sym.NumFloat);
+				:}
+				| Palavra
+				{:
+					asStackUpType(Sym.Frase);
+				:}
+				| Id:ident
+				{:
+					asStackUpType(ts.get(ident));
+				:}
+				| ABRE_PARENTESES exp_arit FECHA_PARENTESES;
+
+EXPRESSAO ::= EXPRESSAO OPERACAO | TIPO;
+OPERACAO ::= compIg EXPRESSAO2 | add EXPRESSAO2 | subt EXPRESSAO2 | mult EXPRESSAO2 | div EXPRESSAO2 | exp EXPRESSAO2 | Maior EXPRESSAO2 | Menor EXPRESSAO2;
+EXPRESSAO2 ::= OPERACAO | TIPO;

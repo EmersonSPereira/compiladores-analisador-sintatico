@@ -1,0 +1,13 @@
+Zint dois Att 2 cf
+Rfloat teste cf
+teste Att 35.2 cf 
+deu(teste){ 
+	dois Att 5 cf
+	x Att (y add 40) cf
+}
+deuN{
+	efvLoop ( 5 compIg 5){
+		Rfloat var Att x cf
+	}
+	Txt nome Att ("Emerson" subt (x mult u)) cf
+} cf 
